@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  customer
+  professional
+}
+
+enum SystemRole {
+  user
+  admin
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum AuthProvider {
+  google
+  facebook
+}
+
+enum OtpPurpose {
+  email_verify
+  password_reset
+}
+
+enum DevicePlatform {
+  ios
+  android
+}
+
+// ---------- Identity ----------
+
+model User {
+  id              String     @id @default(uuid()) @db.Uuid
+  fullName        String
+  email           String     @unique // always stored trimmed + lowercased
+  passwordHash    String? // null for social-only accounts
+  phone           String? // E.164, e.g. +233...
+  avatarUrl       String?
+  emailVerifiedAt DateTime?
+  activeRole      Role? // null until a role is onboarded
+  systemRole      SystemRole @default(user)
+  language        String     @default("en")
+  status          UserStatus @default(active)
+  termsAcceptedAt DateTime?
+  termsVersion    String?
+  lastLoginAt     DateTime?
+  deletedAt       DateTime? // soft delete; PII is anonymised
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  customerProfile     CustomerProfile?
+  professionalProfile ProfessionalProfile?
+  identities          AuthIdentity[]
+  otpCodes            OtpCode[]
+  refreshSessions     RefreshSession[]
+  deviceTokens        DeviceToken[]
+
+  @@map("users")
+}
+
+model AuthIdentity {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @db.Uuid
+  provider       AuthProvider
+  providerUserId String
+  email          String? // email the provider reported, for auditing
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+  @@map("auth_identities")
+}
+
+model OtpCode {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @db.Uuid
+  codeHash   String
+  purpose    OtpPurpose
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose, createdAt])
+  @@map("otp_codes")
+}
+
+model RefreshSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  familyId   String    @db.Uuid // all rotations of one login share this
+  tokenHash  String    @unique
+  deviceInfo String?
+  expiresAt  DateTime
+  rotatedAt  DateTime? // set when exchanged for a new token
+  revokedAt  DateTime? // set on logout or family revocation
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_sessions")
+}
+
+model DeviceToken {
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String         @db.Uuid
+  expoPushToken String         @unique
+  platform      DevicePlatform
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// ---------- Profile stubs (filled out in the onboarding milestone) ----------
+
+model CustomerProfile {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @unique @db.Uuid
+  onboardedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("customer_profiles")
+}
+
+model ProfessionalProfile {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @unique @db.Uuid
+  onboardedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("professional_profiles")
+}
