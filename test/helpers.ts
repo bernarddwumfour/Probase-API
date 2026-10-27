@@ -81,4 +81,53 @@ export async function registerUser(
   return { email, password, ...res.body };
 }
 
+
+export async function seedProfessions(
+  ctx: TestCtx,
+  names = ['Plumber', 'Electrician', 'Cleaner'],
+) {
+  return Promise.all(
+    names.map((name) =>
+      ctx.prisma.profession.upsert({
+        where: { slug: name.toLowerCase() },
+        update: { active: true },
+        create: { name, slug: name.toLowerCase() },
+      }),
+    ),
+  );
+}
+
+export async function onboardCustomer(
+  ctx: TestCtx,
+  user: AuthBody,
+  professionIds: string[],
+  locations: object[] = [],
+) {
+  await ctx
+    .api()
+    .post('/v1/me/customer-profile')
+    .set(bearer(user.accessToken))
+    .send({ preferredProfessionIds: professionIds, locations })
+    .expect(201);
+}
+
+/** One entry per day; Sunday closed, the rest 08:00-18:00. Override single days by index. */
+export const workingWeek = (overrides: Record<number, object> = {}) =>
+  [0, 1, 2, 3, 4, 5, 6].map((d) => ({
+    dayOfWeek: d,
+    isOpen: d !== 0,
+    ...(d !== 0 ? { opensAt: '08:00', closesAt: '18:00' } : {}),
+    ...overrides[d],
+  }));
+
+export const proBody = (professionId: string, extra: object = {}) => ({
+  businessName: 'Kofi Plumbing',
+  professionId,
+  latitude: 5.6037,
+  longitude: -0.187,
+  workingDays: workingWeek(),
+  ...extra,
+});
+
+
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });

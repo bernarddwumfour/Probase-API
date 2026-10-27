@@ -141,8 +141,8 @@ describe('passwords and account (e2e)', () => {
 
     it('does not treat a started but unfinished profile as onboarded', async () => {
       const user = await registerUser(ctx);
-      await ctx.prisma.professionalProfile.create({ data: { userId: user.user.id } });
-      const res = await ctx.api().put('/v1/me/active-role').set(bearer(user.accessToken)).send({ role: 'professional' }).expect(422);
+      await ctx.prisma.customerProfile.create({ data: { userId: user.user.id } });
+      const res = await ctx.api().put('/v1/me/active-role').set(bearer(user.accessToken)).send({ role: 'customer' }).expect(422);
       expect(res.body.code).toBe('ROLE_NOT_ONBOARDED');
     });
   });

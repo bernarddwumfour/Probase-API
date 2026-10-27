@@ -39,6 +39,19 @@ enum DevicePlatform {
   android
 }
 
+enum VerificationStatus {
+  unverified
+  pending
+  approved
+  rejected
+}
+
+enum RateUnit {
+  hour
+  job
+  day
+}
+
 // ---------- Identity ----------
 
 model User {
@@ -136,7 +149,24 @@ model DeviceToken {
   @@map("device_tokens")
 }
 
-// ---------- Profile stubs (filled out in the onboarding milestone) ----------
+// ---------- Lookups ----------
+
+model Profession {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @unique
+  slug      String   @unique
+  iconUrl   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  preferredBy   CustomerPreferredProfession[]
+  professionals ProfessionalProfile[]
+
+  @@map("professions")
+}
+
+// ---------- Customer side ----------
 
 model CustomerProfile {
   id          String    @id @default(uuid()) @db.Uuid
@@ -145,19 +175,101 @@ model CustomerProfile {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredProfessions CustomerPreferredProfession[]
+  savedLocations       SavedLocation[]
 
   @@map("customer_profiles")
 }
 
+model CustomerPreferredProfession {
+  customerId   String   @db.Uuid
+  professionId String   @db.Uuid
+  createdAt    DateTime @default(now())
+
+  customer   CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  profession Profession      @relation(fields: [professionId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, professionId])
+  @@map("customer_preferred_professions")
+}
+
+model SavedLocation {
+  id             String   @id @default(uuid()) @db.Uuid
+  customerId     String   @db.Uuid
+  name           String
+  latitude       Float
+  longitude      Float
+  address        String?
+  searchRadiusKm Int      @default(2)
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("saved_locations")
+}
+
+// ---------- Professional side ----------
+
 model ProfessionalProfile {
-  id          String    @id @default(uuid()) @db.Uuid
-  userId      String    @unique @db.Uuid
-  onboardedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                  String             @id @default(uuid()) @db.Uuid
+  userId              String             @unique @db.Uuid
+  businessName        String
+  professionId        String             @db.Uuid
+  description         String?
+  latitude            Float
+  longitude           Float
+  address             String?
+  operationalRadiusKm Int                @default(5)
+  verificationStatus  VerificationStatus @default(unverified)
+  ratingAverage       Decimal            @default(0) @db.Decimal(3, 2)
+  ratingCount         Int                @default(0)
+  onboardedAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profession  Profession   @relation(fields: [professionId], references: [id])
+  workingDays WorkingDay[]
+  services    Service[]
 
+  @@index([professionId])
   @@map("professional_profiles")
+}
+
+model WorkingDay {
+  id             String   @id @default(uuid()) @db.Uuid
+  professionalId String   @db.Uuid
+  dayOfWeek      Int // 0 = Sunday ... 6 = Saturday
+  isOpen         Boolean
+  opensAt        String? // "HH:mm", set only when open
+  closesAt       String? // "HH:mm", set only when open
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@unique([professionalId, dayOfWeek])
+  @@map("working_days")
+}
+
+model Service {
+  id             String   @id @default(uuid()) @db.Uuid
+  professionalId String   @db.Uuid
+  name           String
+  description    String?
+  rate           Decimal  @db.Decimal(10, 2)
+  rateUnit       RateUnit
+  currency       String   @default("GHS")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId])
+  @@map("services")
 }
