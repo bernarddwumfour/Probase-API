@@ -30,6 +30,18 @@ export const envSchema = z
         MAIL_FROM: z.string().default('ProBase <no-reply@probase.local>'),
 
         GOOGLE_CLIENT_IDS: z.string().default('').transform(csv),
+
+        
+        STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+        STORAGE_LOCAL_DIR: z.string().default('./storage'),
+        PUBLIC_BASE_URL: z.string().url().default('http://localhost:3000'),
+        S3_ENDPOINT: z.string().url().optional(),
+        S3_REGION: z.string().default('us-east-1'),
+        S3_ACCESS_KEY_ID: z.string().optional(),
+        S3_SECRET_ACCESS_KEY: z.string().optional(),
+        S3_PUBLIC_BUCKET: z.string().optional(),
+        S3_PRIVATE_BUCKET: z.string().optional(),
+        S3_PUBLIC_BASE_URL: z.string().url().optional(),
     })
     .superRefine((env, ctx) => {
         if (env.MAIL_TRANSPORT === 'smtp' && !env.SMTP_HOST) {

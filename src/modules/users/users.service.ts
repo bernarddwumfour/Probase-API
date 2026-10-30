@@ -8,13 +8,17 @@ import { PasswordService } from '../auth/services/password.service';
 import { DeleteAccountDto } from './dto/delete-account.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { toMeResponse } from './user.mapper';
+import type { Upload } from '@prisma/client';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
-  ) {}
+    private readonly uploads: UploadsService,
+
+  ) { }
 
   private async load(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -32,12 +36,32 @@ export class UsersService {
   }
 
   async updateMe(userId: string, dto: UpdateMeDto) {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      // undefined fields are left alone; phone: null clears the number
-      data: { fullName: dto.fullName, phone: dto.phone, language: dto.language },
-      include: profileInclude,
+    const { avatarUploadId, ...fields } = dto;
+
+    let avatarUrl: string | null | undefined; // undefined leaves the avatar unchanged
+    let newUpload: Upload | undefined;
+    if (avatarUploadId) {
+      newUpload = await this.uploads.verify(userId, avatarUploadId, 'avatar');
+      avatarUrl = this.uploads.publicUrl(newUpload.key);
+    } else if (avatarUploadId === null) {
+      avatarUrl = null;
+    }
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      if (newUpload) await this.uploads.markConsumed(tx, newUpload.id);
+      return tx.user.update({
+        where: { id: userId },
+        data: {
+          fullName: fields.fullName,
+          phone: fields.phone, // null clears the number
+          language: fields.language,
+          avatarUrl,
+        },
+        include: profileInclude,
+      });
     });
+
+    if (avatarUrl !== undefined) await this.uploads.discardOldAvatars(userId, newUpload?.id);
     return toMeResponse(user);
   }
 
@@ -100,5 +124,6 @@ export class UsersService {
       this.prisma.authIdentity.deleteMany({ where: { userId } }),
       this.prisma.otpCode.deleteMany({ where: { userId } }),
     ]);
+    await this.uploads.deleteAllForUser(userId);
   }
 }

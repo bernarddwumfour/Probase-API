@@ -25,6 +25,8 @@ export const ErrorCode = {
     PASSWORD_INCORRECT: 'PASSWORD_INCORRECT',
     ALREADY_ONBOARDED: 'ALREADY_ONBOARDED',
     LOCATION_LIMIT_REACHED: 'LOCATION_LIMIT_REACHED',
+    UPLOAD_INVALID: 'UPLOAD_INVALID',
+    UPLOAD_NOT_READY: 'UPLOAD_NOT_READY',
 } as const;
 
 export type ErrorCodeValue = (typeof ErrorCode)[keyof typeof ErrorCode];

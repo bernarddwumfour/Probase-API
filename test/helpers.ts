@@ -129,5 +129,42 @@ export const proBody = (professionId: string, extra: object = {}) => ({
   ...extra,
 });
 
+export async function createCustomer(ctx: TestCtx, professionIds: string[]) {
+  const user = await registerUser(ctx);
+  await onboardCustomer(ctx, user, professionIds);
+  return user;
+}
+
+export async function createProfessional(
+  ctx: TestCtx,
+  professionId: string,
+  opts: {
+    businessName: string;
+    latitude?: number;
+    longitude?: number;
+    description?: string;
+    services?: object[];
+  },
+) {
+  const user = await registerUser(ctx, { fullName: `${opts.businessName} Owner` });
+  await ctx
+    .api()
+    .post('/v1/me/professional-profile')
+    .set(bearer(user.accessToken))
+    .send(
+      proBody(professionId, {
+        businessName: opts.businessName,
+        latitude: opts.latitude ?? 5.6037,
+        longitude: opts.longitude ?? -0.187,
+        ...(opts.description ? { description: opts.description } : {}),
+        ...(opts.services ? { services: opts.services } : {}),
+      }),
+    )
+    .expect(201);
+  const profile = await ctx.prisma.professionalProfile.findUniqueOrThrow({
+    where: { userId: user.user.id },
+  });
+  return { user, profileId: profile.id };
+}
 
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });

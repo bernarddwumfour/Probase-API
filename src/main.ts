@@ -9,6 +9,7 @@ import type { Env } from './config/env.schema';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { createValidationPipe } from './common/pipes/validation.pipe';
 import { configureApp } from './app.setup';
+import { StorageService } from './modules/uploads/storage/storage.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -26,7 +27,15 @@ async function bootstrap() {
   configureApp(app);
 
   // CSP is off outside production so Swagger UI's inline scripts work
-  app.use(helmet({ contentSecurityPolicy: isProd ? undefined : false }));
+    app.use(
+    helmet({
+      contentSecurityPolicy: isProd ? undefined : false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' }, // images are loaded cross-origin
+    }),
+  );
+
+  const localPublicDir = app.get(StorageService).localPublicDir;
+  if (localPublicDir) app.useStaticAssets(localPublicDir, { prefix: '/files' });
 
   const origins = config.get('CORS_ORIGINS', { infer: true });
   app.enableCors({

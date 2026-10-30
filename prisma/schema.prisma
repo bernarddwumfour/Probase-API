@@ -52,6 +52,17 @@ enum RateUnit {
   day
 }
 
+enum UploadPurpose {
+  avatar
+  portfolio
+  verification
+}
+
+enum UploadStatus {
+  pending
+  consumed
+}
+
 // ---------- Identity ----------
 
 model User {
@@ -72,6 +83,7 @@ model User {
   deletedAt       DateTime? // soft delete; PII is anonymised
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+  uploads         Upload[]
 
   customerProfile     CustomerProfile?
   professionalProfile ProfessionalProfile?
@@ -178,6 +190,7 @@ model CustomerProfile {
   user                 User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
   preferredProfessions CustomerPreferredProfession[]
   savedLocations       SavedLocation[]
+  savedProfessionals   SavedProfessional[]
 
   @@map("customer_profiles")
 }
@@ -231,10 +244,11 @@ model ProfessionalProfile {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  profession  Profession   @relation(fields: [professionId], references: [id])
-  workingDays WorkingDay[]
-  services    Service[]
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profession         Profession          @relation(fields: [professionId], references: [id])
+  workingDays        WorkingDay[]
+  services           Service[]
+  savedProfessionals SavedProfessional[]
 
   @@index([professionId])
   @@map("professional_profiles")
@@ -272,4 +286,36 @@ model Service {
 
   @@index([professionalId])
   @@map("services")
+}
+
+model Upload {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @db.Uuid
+  purpose     UploadPurpose
+  key         String        @unique
+  contentType String
+  sizeBytes   Int
+  status      UploadStatus  @default(pending)
+  expiresAt   DateTime // last moment it can be attached
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([status, expiresAt])
+  @@map("uploads")
+}
+
+model SavedProfessional {
+  customerId     String   @db.Uuid
+  professionalId String   @db.Uuid
+  createdAt      DateTime @default(now())
+
+  customer     CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@id([customerId, professionalId])
+  @@index([professionalId])
+  @@map("saved_professionals")
 }

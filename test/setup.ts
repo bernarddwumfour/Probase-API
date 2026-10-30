@@ -1,3 +1,6 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 const url =
   process.env.TEST_DATABASE_URL ??
   'postgresql://probase:probase@localhost:5432/probase_test?schema=public';
@@ -15,4 +18,7 @@ Object.assign(process.env, {
   OTP_RESEND_COOLDOWN_SECONDS: '0',
   OTP_MAX_ATTEMPTS: '5',
   MAIL_TRANSPORT: 'console',
+  STORAGE_DRIVER: 'local',
+  STORAGE_LOCAL_DIR: join(tmpdir(), 'probase-test-storage'),
+  PUBLIC_BASE_URL: 'http://localhost:3000',
 });

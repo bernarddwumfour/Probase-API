@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsString, Length, Matches ,IsUUID } from 'class-validator';
 
 export const SUPPORTED_LANGUAGES = ['en'] as const;
 
@@ -25,4 +25,8 @@ export class UpdateMeDto {
   @IsOptional()
   @IsIn(SUPPORTED_LANGUAGES)
   language?: string;
+
+  @IsOptional()
+  @IsUUID()
+  avatarUploadId?: string | null;
 }
