@@ -63,6 +63,28 @@ enum UploadStatus {
   consumed
 }
 
+enum BookingStatus {
+  pending
+  confirmed
+  declined
+  cancelled
+  in_progress
+  completed
+}
+
+enum BookingLocationType {
+  saved
+  custom
+  professional
+}
+
+enum RescheduleStatus {
+  pending
+  accepted
+  declined
+  withdrawn
+}
+
 // ---------- Identity ----------
 
 model User {
@@ -91,6 +113,7 @@ model User {
   otpCodes            OtpCode[]
   refreshSessions     RefreshSession[]
   deviceTokens        DeviceToken[]
+  notifications       Notification[]
 
   @@map("users")
 }
@@ -191,6 +214,7 @@ model CustomerProfile {
   preferredProfessions CustomerPreferredProfession[]
   savedLocations       SavedLocation[]
   savedProfessionals   SavedProfessional[]
+  bookings             Booking[]
 
   @@map("customer_profiles")
 }
@@ -249,6 +273,7 @@ model ProfessionalProfile {
   workingDays        WorkingDay[]
   services           Service[]
   savedProfessionals SavedProfessional[]
+  bookings           Booking[]
 
   @@index([professionId])
   @@map("professional_profiles")
@@ -282,7 +307,8 @@ model Service {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  professional    ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  bookingServices BookingService[]
 
   @@index([professionalId])
   @@map("services")
@@ -318,4 +344,90 @@ model SavedProfessional {
   @@id([customerId, professionalId])
   @@index([professionalId])
   @@map("saved_professionals")
+}
+
+// ---------- Bookings ----------
+
+model Booking {
+  id             String               @id @default(uuid()) @db.Uuid
+  customerId     String               @db.Uuid
+  professionalId String               @db.Uuid
+  status         BookingStatus        @default(pending)
+  note           String?
+  preferredAt    DateTime?
+  scheduledAt    DateTime?
+  locationType   BookingLocationType?
+  locationName   String?
+  address        String?
+  latitude       Float?
+  longitude      Float?
+  statusReason   String?
+  confirmedAt    DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  customer     CustomerProfile     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  services     BookingService[]
+  reschedules  RescheduleRequest[]
+
+  @@index([customerId, status, createdAt])
+  @@index([professionalId, status, createdAt])
+  @@map("bookings")
+}
+
+model BookingService {
+  id               String    @id @default(uuid()) @db.Uuid
+  bookingId        String    @db.Uuid
+  serviceId        String?   @db.Uuid
+  nameSnapshot     String
+  rateSnapshot     Decimal?  @db.Decimal(10, 2)
+  rateUnitSnapshot RateUnit?
+  currencySnapshot String?
+  isOther          Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+
+  booking Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  service Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([bookingId])
+  @@map("booking_services")
+}
+
+model RescheduleRequest {
+  id          String           @id @default(uuid()) @db.Uuid
+  bookingId   String           @db.Uuid
+  proposedBy  Role
+  proposedAt  DateTime
+  note        String?
+  status      RescheduleStatus @default(pending)
+  respondedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, status])
+  @@map("reschedule_requests")
+}
+
+// ---------- Notifications ----------
+
+model Notification {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  kind      String
+  title     String
+  message   String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+  @@map("notifications")
 }
