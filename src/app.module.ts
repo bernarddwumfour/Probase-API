@@ -13,13 +13,15 @@ import { ProfessionsModule } from './modules/professions/professions.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { ProfessionalsModule } from './modules/professionals/professionals.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 
 
 @Module({
   imports: [
     AppConfigModule, AppLoggerModule, PrismaModule, HealthModule,
-    AuthModule, UsersModule, ProfessionsModule, CustomersModule, ProfessionalsModule,UploadsModule,    // ttl is in milliseconds: 60 requests per minute per IP by default
+    AuthModule, UsersModule, ProfessionsModule, CustomersModule, ProfessionalsModule,UploadsModule, BookingsModule,NotificationsModule,   // ttl is in milliseconds: 60 requests per minute per IP by default
     ThrottlerModule.forRoot({
       throttlers: [{ name: 'default', ttl: 60_000, limit: 60 }],
       skipIf: () => process.env.NODE_ENV === 'test',
